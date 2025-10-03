@@ -95,6 +95,7 @@
         
         .input-group {
             margin-bottom: 25px;
+            text-align: center;
         }
         
         label {
@@ -104,8 +105,8 @@
             font-weight: 500;
         }
         
-        input[type="text"] {
-            width: 100%;
+        input[type="file"], input[type="text"] {
+            width: 80%;
             padding: 15px;
             background: rgba(0, 0, 0, 0.5);
             border: 1px solid #8a2be2;
@@ -114,10 +115,52 @@
             font-size: 1rem;
             outline: none;
             transition: all 0.3s ease;
+            margin: 0 auto;
+            display: block;
         }
         
-        input[type="text"]:focus {
-            box-shadow: 0 0 15px rgba(138, 43, 226, 0.7);
+        input[type="text"] {
+            margin-top: 10px;
+        }
+        
+        .input-options {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 15px 0;
+        }
+        
+        .option-btn {
+            padding: 10px 20px;
+            background: rgba(138, 43, 226, 0.3);
+            border: 1px solid #8a2be2;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .option-btn.active {
+            background: #8a2be2;
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
+        }
+        
+        .preview-container {
+            margin-top: 15px;
+            text-align: center;
+        }
+        
+        .preview-title {
+            margin-bottom: 10px;
+            color: #da70d6;
+        }
+        
+        #image-preview {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 10px;
+            border: 1px solid #8a2be2;
+            display: none;
         }
         
         .btn {
@@ -154,6 +197,7 @@
         
         .result img {
             max-width: 100%;
+            max-height: 500px;
             border-radius: 10px;
             border: 2px solid #8a2be2;
             box-shadow: 0 0 20px rgba(138, 43, 226, 0.5);
@@ -223,6 +267,11 @@
             transform: translateX(0);
         }
         
+        .notification.error {
+            border-left-color: #ff4444;
+            background: rgba(130, 0, 0, 0.9);
+        }
+        
         @media (max-width: 768px) {
             .title {
                 font-size: 2rem;
@@ -236,6 +285,14 @@
                 padding: 12px 20px;
                 font-size: 1rem;
             }
+            
+            input[type="file"], input[type="text"] {
+                width: 100%;
+            }
+            
+            .input-options {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -243,21 +300,38 @@
     <div class="container">
         <div class="header">
             <h1 class="title">Skin Darkener AI</h1>
-            <p class="subtitle">Masukkan URL gambar dan ubah kulit menjadi hitam gelap</p>
+            <p class="subtitle">Upload gambar atau masukkan URL gambar untuk mengubah kulit menjadi hitam gelap</p>
+        </div>
+        
+        <div class="input-options">
+            <button class="option-btn active" data-option="upload">Upload File</button>
+            <button class="option-btn" data-option="url">URL Gambar</button>
         </div>
         
         <div class="input-group">
-            <label for="image-url">URL Gambar:</label>
-            <input type="text" id="image-url" placeholder="https://example.com/image.jpg">
+            <div id="upload-section">
+                <label for="image-upload">Pilih gambar (JPG/PNG):</label>
+                <input type="file" id="image-upload" accept=".jpg,.jpeg,.png">
+            </div>
+            
+            <div id="url-section" style="display: none;">
+                <label for="image-url">Masukkan URL gambar:</label>
+                <input type="text" id="image-url" placeholder="https://example.com/image.jpg">
+            </div>
+        </div>
+        
+        <div class="preview-container">
+            <p class="preview-title">Pratinjau:</p>
+            <img id="image-preview" src="#" alt="Pratinjau Gambar">
         </div>
         
         <button class="btn" id="process-btn">
-            <span>🚀 Proses dengan AI</span>
+            <span>🚀 Proses Hitamkan Kulit</span>
         </button>
         
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <p>Sedang memproses permintaan Anda...</p>
+            <p>Sedang memproses gambar...</p>
         </div>
         
         <div class="result" id="result">
@@ -267,87 +341,218 @@
         </div>
         
         <footer>
-            <p>Diberdayakan oleh AI Technology</p>
+            <p>Diberdayakan oleh SXZnightmare API</p>
         </footer>
     </div>
 
     <div class="notification" id="notification">
-        Gambar berhasil dihasilkan! Silakan download.
+        Gambar berhasil diproses! Kulit sudah dihitamkan.
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const processBtn = document.getElementById('process-btn');
+            const imageUpload = document.getElementById('image-upload');
             const imageUrlInput = document.getElementById('image-url');
+            const imagePreview = document.getElementById('image-preview');
             const resultDiv = document.getElementById('result');
             const loadingDiv = document.getElementById('loading');
             const imageContainer = document.getElementById('image-container');
             const downloadBtn = document.getElementById('download-btn');
             const notification = document.getElementById('notification');
+            const optionBtns = document.querySelectorAll('.option-btn');
+            const uploadSection = document.getElementById('upload-section');
+            const urlSection = document.getElementById('url-section');
+            
+            let currentOption = 'upload';
+            let uploadedImage = null;
+            let imageUrl = null;
+            
+            // Switch antara upload file dan URL
+            optionBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    optionBtns.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentOption = this.dataset.option;
+                    
+                    if (currentOption === 'upload') {
+                        uploadSection.style.display = 'block';
+                        urlSection.style.display = 'none';
+                        imagePreview.style.display = 'none';
+                        uploadedImage = null;
+                    } else {
+                        uploadSection.style.display = 'none';
+                        urlSection.style.display = 'block';
+                        imagePreview.style.display = 'none';
+                        imageUrl = null;
+                    }
+                    
+                    resultDiv.style.display = 'none';
+                });
+            });
             
             // Fungsi untuk menampilkan notifikasi
-            function showNotification() {
+            function showNotification(message, isError = false) {
+                notification.textContent = message;
+                notification.className = 'notification';
+                if (isError) {
+                    notification.classList.add('error');
+                }
                 notification.classList.add('show');
                 setTimeout(() => {
                     notification.classList.remove('show');
-                }, 3000);
+                }, 4000);
             }
             
-            processBtn.addEventListener('click', function() {
-                const imageUrl = imageUrlInput.value.trim();
-                
-                if (imageUrl === '') {
-                    alert('Silakan masukkan URL gambar terlebih dahulu!');
+            // Fungsi untuk upload gambar ke telegra.ph (gratis)
+            async function uploadImage(file) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const response = await fetch('https://telegra.ph/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Upload gagal');
+                    }
+                    
+                    const data = await response.json();
+                    if (data[0] && data[0].src) {
+                        return 'https://telegra.ph' + data[0].src;
+                    } else {
+                        throw new Error('URL tidak ditemukan');
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    throw new Error('Upload gagal! Coba lagi nanti yaa~');
+                }
+            }
+            
+            // Event listener untuk upload gambar
+            imageUpload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    // Validasi file type
+                    if (!file.type.match('image/jpeg') && !file.type.match('image/png') && !file.type.match('image/jpg')) {
+                        showNotification('Format tidak valid! Gunakan JPG/PNG yaa~', true);
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        imagePreview.src = e.target.result;
+                        imagePreview.style.display = 'block';
+                        uploadedImage = file;
+                        resultDiv.style.display = 'none';
+                    }
+                    
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // Event listener untuk URL gambar
+            imageUrlInput.addEventListener('input', function() {
+                const url = this.value.trim();
+                if (url) {
+                    // Validasi URL gambar
+                    if (url.match(/\.(jpeg|jpg|png)$/i)) {
+                        imagePreview.src = url;
+                        imagePreview.style.display = 'block';
+                        imageUrl = url;
+                        resultDiv.style.display = 'none';
+                    }
+                } else {
+                    imagePreview.style.display = 'none';
+                    imageUrl = null;
+                }
+            });
+            
+            processBtn.addEventListener('click', async function() {
+                if (currentOption === 'upload' && !uploadedImage) {
+                    showNotification('Pilih gambar terlebih dahulu!', true);
                     return;
                 }
                 
-                // Prompt untuk API - simple: buat kulit jadi hitam
-                const prompt = "dark black skin tone";
-                const encodedPrompt = encodeURIComponent(prompt);
-                
-                // API URL seperti di contoh pertama
-                const apiUrl = `https://api.siputzx.my.id/api/ai/flux?prompt=${encodedPrompt}`;
+                if (currentOption === 'url' && !imageUrl) {
+                    showNotification('Masukkan URL gambar terlebih dahulu!', true);
+                    return;
+                }
                 
                 // Tampilkan loading
                 loadingDiv.style.display = 'block';
                 resultDiv.style.display = 'none';
                 
-                // Lakukan request ke API
-                fetch(apiUrl)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.blob();
-                    })
-                    .then(blob => {
-                        // Buat URL dari blob
-                        const imageUrl = URL.createObjectURL(blob);
-                        
-                        // Sembunyikan loading
-                        loadingDiv.style.display = 'none';
-                        
-                        // Tampilkan gambar
-                        const img = document.createElement('img');
-                        img.src = imageUrl;
-                        img.alt = 'Generated Dark Skin Image';
-                        imageContainer.innerHTML = '';
-                        imageContainer.appendChild(img);
-                        
-                        // Set download link
-                        downloadBtn.href = imageUrl;
-                        
-                        // Tampilkan result
-                        resultDiv.style.display = 'block';
-                        
-                        // Tampilkan notifikasi
-                        showNotification();
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        loadingDiv.style.display = 'none';
-                        alert('Terjadi kesalahan saat memproses permintaan. Silakan coba lagi.');
-                    });
+                try {
+                    let finalImageUrl;
+                    
+                    if (currentOption === 'upload') {
+                        // Upload gambar dulu
+                        showNotification('⏳ Mengupload gambar...');
+                        finalImageUrl = await uploadImage(uploadedImage);
+                    } else {
+                        // Langsung pakai URL yang dimasukkan
+                        finalImageUrl = imageUrl;
+                    }
+                    
+                    if (!finalImageUrl) {
+                        throw new Error('URL gambar tidak valid!');
+                    }
+                    
+                    // Panggil API hitamkan kulit
+                    const apiUrl = `https://izumiiiiiiii.dpdns.org/ai-image/hytamkan?imageUrl=${encodeURIComponent(finalImageUrl)}`;
+                    
+                    showNotification('🍀 Memproses gambar...');
+                    const response = await fetch(apiUrl);
+                    
+                    if (!response.ok) {
+                        throw new Error('Gagal menghubungi dapur API! Coba lagi nanti~');
+                    }
+                    
+                    const json = await response.json();
+                    
+                    if (!json || !json.result || !json.result.download) {
+                        throw new Error('Respon API tidak sesuai!');
+                    }
+                    
+                    // Ambil gambar hasil
+                    const resultImageUrl = json.result.download;
+                    const imgRes = await fetch(resultImageUrl);
+                    
+                    if (!imgRes.ok) {
+                        throw new Error('Gagal mengambil gambar hasil!');
+                    }
+                    
+                    const blob = await imgRes.blob();
+                    const imageUrlFinal = URL.createObjectURL(blob);
+                    
+                    // Sembunyikan loading
+                    loadingDiv.style.display = 'none';
+                    
+                    // Tampilkan gambar hasil
+                    const resultImg = document.createElement('img');
+                    resultImg.src = imageUrlFinal;
+                    resultImg.alt = 'Hasil Kulit Hitam';
+                    imageContainer.innerHTML = '';
+                    imageContainer.appendChild(resultImg);
+                    
+                    // Set download link
+                    downloadBtn.href = imageUrlFinal;
+                    
+                    // Tampilkan result
+                    resultDiv.style.display = 'block';
+                    
+                    // Tampilkan notifikasi sukses
+                    showNotification('✨ Sugoii~! Gambar berhasil diolah jadi versi Hitam');
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    loadingDiv.style.display = 'none';
+                    showNotification(`🍭 Ups ada error teknis! ${error.message}`, true);
+                }
             });
         });
     </script>
