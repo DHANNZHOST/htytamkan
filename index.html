@@ -1,336 +1,80 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ToHitam - Image Black and White Converter</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f4f9;
-            color: #333;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .container {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
-            width: 100%;
-        }
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
-        input[type="url"], input[type="file"] {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 20px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #3498db;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s ease;
-            width: 100%;
-        }
-        button:hover {
-            background-color: #2980b9;
-        }
-        button:disabled {
-            background-color: #95a5a6;
-            cursor: not-allowed;
-        }
-        .message {
-            margin-top: 20px;
-            padding: 10px;
-            border-radius: 4px;
-            text-align: center;
-            font-weight: bold;
-        }
-        .loading {
-            background-color: #f39c12;
-            color: white;
-        }
-        .error {
-            background-color: #e74c3c;
-            color: white;
-        }
-        .success {
-            background-color: #2ecc71;
-            color: white;
-        }
-        #resultContainer {
-            margin-top: 30px;
-            text-align: center;
-        }
-        #resultImage {
-            max-width: 100%;
-            height: auto;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            margin-top: 15px;
-        }
-        #downloadLink {
-            display: inline-block;
-            margin-top: 15px;
-            background-color: #34495e;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .upload-preview {
-            max-width: 100%;
-            max-height: 200px;
-            margin: 10px 0;
-            border: 1px dashed #ccc;
-            border-radius: 4px;
-            display: none;
-        }
-        .tab-container {
-            display: flex;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #ddd;
-        }
-        .tab {
-            flex: 1;
-            padding: 10px;
-            text-align: center;
-            cursor: pointer;
-            background-color: #f8f9fa;
-            border: none;
-            border-bottom: 2px solid transparent;
-        }
-        .tab.active {
-            border-bottom: 2px solid #3498db;
-            background-color: #fff;
-            font-weight: bold;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .info-text {
-            font-size: 14px;
-            color: #666;
-            margin-top: -15px;
-            margin-bottom: 15px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>✨ ToHitam Web Converter ✨</h1>
-        <p>Pilih gambar dari perangkat Anda atau masukkan URL gambar untuk diubah menjadi versi hitam.</p>
-        
-        <div class="tab-container">
-            <button class="tab active" data-tab="upload">📁 Upload Gambar</button>
-            <button class="tab" data-tab="url">🔗 URL Gambar</button>
-        </div>
-        
-        <form id="tohitamForm">
-            <div class="tab-content active" id="uploadTab">
-                <label for="imageFile">Pilih Gambar (JPG/PNG, maks. 5MB):</label>
-                <input type="file" id="imageFile" accept="image/jpeg,image/png" required>
-                <p class="info-text">Format yang didukung: JPG, PNG. Maksimal ukuran file: 5MB</p>
-                <img id="uploadPreview" class="upload-preview" alt="Preview Gambar">
-            </div>
-            
-            <div class="tab-content" id="urlTab">
-                <label for="imageUrl">URL Gambar:</label>
-                <input type="url" id="imageUrl" placeholder="Contoh: https://example.com/foto.jpg">
-                <p class="info-text">Pastikan URL gambar dapat diakses secara publik</p>
-            </div>
-            
-            <button type="submit" id="submitBtn">🎨 Ubah ke Hitam Putih</button>
-        </form>
+import fetch from 'node-fetch';
 
-        <div id="messageContainer" class="message" style="display: none;"></div>
-        
-        <div id="resultContainer" style="display: none;">
-            <h2>Hasil Pengolahan</h2>
-            <img id="resultImage" src="" alt="Gambar Hasil" style="display: none;">
-            <a id="downloadLink" href="#" target="_blank" download="tohitam.png" style="display: none;">📥 Unduh Gambar Hasil</a>
-        </div>
-    </div>
+export default async function handler(request, response) {
+  // Set CORS headers
+  response.setHeader('Access-Control-Allow-Credentials', true);
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  response.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
-    <script>
-        const form = document.getElementById('tohitamForm');
-        const imageUrlInput = document.getElementById('imageUrl');
-        const imageFileInput = document.getElementById('imageFile');
-        const uploadPreview = document.getElementById('uploadPreview');
-        const submitBtn = document.getElementById('submitBtn');
-        const messageContainer = document.getElementById('messageContainer');
-        const resultContainer = document.getElementById('resultContainer');
-        const resultImage = document.getElementById('resultImage');
-        const downloadLink = document.getElementById('downloadLink');
-        const tabs = document.querySelectorAll('.tab');
-        const tabContents = document.querySelectorAll('.tab-content');
+  // Handle OPTIONS request for CORS
+  if (request.method === 'OPTIONS') {
+    return response.status(200).end();
+  }
 
-        // Tab switching functionality
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const tabId = tab.getAttribute('data-tab');
-                
-                // Update active tab
-                tabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                
-                // Update active content
-                tabContents.forEach(content => {
-                    content.classList.remove('active');
-                    if (content.id === `${tabId}Tab`) {
-                        content.classList.add('active');
-                    }
-                });
-                
-                // Clear form validation
-                form.reset();
-                uploadPreview.style.display = 'none';
-                resetResult();
-                hideMessage();
-            });
-        });
+  // Only allow POST requests
+  if (request.method !== 'POST') {
+    return response.status(405).json({
+      success: false,
+      message: 'Method not allowed'
+    });
+  }
 
-        // Preview image when file is selected
-        imageFileInput.addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    uploadPreview.src = e.target.result;
-                    uploadPreview.style.display = 'block';
-                }
-                reader.readAsDataURL(file);
-            } else {
-                uploadPreview.style.display = 'none';
-            }
-        });
+  try {
+    const { imageUrl, imageData } = await request.body;
 
-        const showMessage = (text, type) => {
-            messageContainer.textContent = text;
-            messageContainer.className = `message ${type}`;
-            messageContainer.style.display = 'block';
-            resultContainer.style.display = 'none';
-        };
+    // For now, we only support URL processing
+    // File upload would require additional storage service
+    if (!imageUrl) {
+      return response.status(400).json({
+        success: false,
+        message: 'Silakan gunakan fitur URL gambar. Upload file sedang dalam pengembangan.'
+      });
+    }
 
-        const hideMessage = () => {
-            messageContainer.style.display = 'none';
-        };
+    // Validate URL
+    try {
+      new URL(imageUrl);
+    } catch (urlError) {
+      return response.status(400).json({
+        success: false,
+        message: 'URL gambar tidak valid'
+      });
+    }
 
-        const resetResult = () => {
-            resultImage.style.display = 'none';
-            downloadLink.style.display = 'none';
-            resultImage.src = '';
-            downloadLink.href = '#';
-        };
+    // Call external API
+    const apiUrl = `https://izumiiiiiiii.dpdns.org/ai-image/hytamkan?imageUrl=${encodeURIComponent(imageUrl)}`;
+    
+    console.log('Calling external API:', apiUrl);
+    
+    const apiResponse = await fetch(apiUrl, {
+      method: 'GET',
+      timeout: 30000
+    });
 
-        const convertImageToBase64 = (file) => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-                reader.readAsDataURL(file);
-            });
-        };
+    if (!apiResponse.ok) {
+      throw new Error(`API responded with status: ${apiResponse.status}`);
+    }
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            resetResult();
-            hideMessage();
+    const result = await apiResponse.json();
 
-            const activeTab = document.querySelector('.tab.active').getAttribute('data-tab');
-            let requestData;
+    if (!result?.result?.download) {
+      throw new Error('Invalid response from processing API');
+    }
 
-            if (activeTab === 'upload') {
-                const file = imageFileInput.files[0];
-                if (!file) {
-                    return showMessage('❌ Mohon pilih gambar terlebih dahulu.', 'error');
-                }
-                
-                // Validate file type
-                if (!['image/jpeg', 'image/png'].includes(file.type)) {
-                    return showMessage('❌ Hanya format JPG dan PNG yang didukung.', 'error');
-                }
-                
-                // Validate file size (max 5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    return showMessage('❌ Ukuran file maksimal 5MB.', 'error');
-                }
-                
-                try {
-                    const base64Image = await convertImageToBase64(file);
-                    requestData = { imageData: base64Image };
-                } catch (error) {
-                    return showMessage('❌ Gagal membaca file gambar.', 'error');
-                }
-            } else {
-                const imageUrl = imageUrlInput.value.trim();
-                if (!imageUrl) {
-                    return showMessage('❌ Mohon masukkan URL gambar.', 'error');
-                }
-                requestData = { imageUrl: imageUrl };
-            }
+    // Return success response
+    return response.status(200).json({
+      success: true,
+      message: 'Gambar berhasil diproses!',
+      resultUrl: result.result.download
+    });
 
-            submitBtn.disabled = true;
-            submitBtn.textContent = '⏳ Sedang Mengolah...';
-            showMessage('🔄 Sedang memproses gambar, mohon tunggu...', 'loading');
-
-            try {
-                const response = await fetch('/api/tohitam', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestData)
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    showMessage('✅ Gambar berhasil diolah!', 'success');
-                    
-                    resultImage.src = data.resultUrl;
-                    downloadLink.href = data.resultUrl;
-                    resultImage.style.display = 'block';
-                    downloadLink.style.display = 'inline-block';
-                    resultContainer.style.display = 'block';
-
-                } else {
-                    showMessage(`❌ Gagal: ${data.message || 'Kesalahan tidak diketahui.'}`, 'error');
-                }
-
-            } catch (error) {
-                console.error('Fetch Error:', error);
-                showMessage('❌ Terjadi kesalahan koneksi. Coba lagi nanti.', 'error');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = '🎨 Ubah ke Hitam Putih';
-            }
-        });
-    </script>
-</body>
-</html>
+  } catch (error) {
+    console.error('API Error:', error);
+    
+    return response.status(500).json({
+      success: false,
+      message: `Terjadi kesalahan: ${error.message}`
+    });
+  }
+}
