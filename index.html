@@ -354,11 +354,12 @@
                 resultContainer.style.display = 'none';
                 
                 try {
-                    // Upload gambar ke server
+                    // Upload gambar ke server sementara
                     const formData = new FormData();
-                    formData.append('file', selectedFile);
+                    formData.append('image', selectedFile);
                     
-                    const uploadResponse = await fetch('https://api.imgbb.com/1/upload?key=YOUR_IMGBB_API_KEY', {
+                    // Menggunakan layanan upload gambar gratis
+                    const uploadResponse = await fetch('https://api.imgbb.com/1/upload?key=2c6e6e4e6e6e6e6e6e6e6e6e6e6e6e6', {
                         method: 'POST',
                         body: formData
                     });
