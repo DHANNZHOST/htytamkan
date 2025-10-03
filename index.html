@@ -132,7 +132,7 @@
 
         const showMessage = (text, type) => {
             messageContainer.textContent = text;
-            messageContainer.className = message ${type};
+            messageContainer.className = `message ${type}`;
             messageContainer.style.display = 'block';
             resultContainer.style.display = 'none';
         };
@@ -179,7 +179,7 @@
                     resultContainer.style.display = 'block';
 
                 } else {
-                    showMessage(❌ Gagal: ${data.message || 'Kesalahan tidak diketahui.'}, 'error');
+                    showMessage(`❌ Gagal: ${data.message || 'Kesalahan tidak diketahui.'}`, 'error');
                 }
 
             } catch (error) {
