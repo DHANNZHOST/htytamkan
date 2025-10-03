@@ -1,0 +1,12 @@
+{
+  "name": "tohitam-web",
+  "version": "1.0.0",
+  "description": "Web service for 'tohitam' image processing.",
+  "type": "module",
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}
