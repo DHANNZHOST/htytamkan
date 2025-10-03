@@ -1,23 +1,8 @@
 {
-  "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "index.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "api/tohitam.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/api/tohitam",
-      "dest": "/api/tohitam.js"
+      "source": "/api/tohitam",
+      "destination": "/api/tohitam"
     }
   ]
 }
