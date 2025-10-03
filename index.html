@@ -29,24 +29,50 @@
             text-align: center;
             margin-bottom: 20px;
         }
+        .tab-container {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-weight: bold;
+        }
+        .tab.active {
+            border-bottom: 2px solid #3498db;
+            color: #3498db;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
         label {
             display: block;
             margin-bottom: 8px;
             font-weight: bold;
         }
-        input[type="file"] {
+        input[type="file"], input[type="url"] {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
             border: 1px solid #ccc;
             border-radius: 4px;
             box-sizing: border-box;
+        }
+        input[type="file"] {
             background: #f8f9fa;
         }
         button {
             background-color: #3498db;
             color: white;
-            padding: 10px 15px;
+            padding: 12px 15px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
@@ -108,17 +134,46 @@
             border-radius: 4px;
             font-size: 14px;
         }
+        .info-text {
+            font-size: 14px;
+            color: #666;
+            margin-top: -15px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>✨ ToHitam Web Converter ✨</h1>
-        <p>Upload gambar (JPG/PNG) untuk diubah menjadi hitam putih.</p>
+        <p>Ubah gambar menjadi hitam putih dengan mudah</p>
+        
+        <div class="tab-container">
+            <button class="tab active" data-tab="upload">📁 Upload File</button>
+            <button class="tab" data-tab="url">🔗 URL Gambar</button>
+        </div>
+
         <form id="tohitamForm">
-            <label for="imageFile">Pilih Gambar:</label>
-            <input type="file" id="imageFile" accept="image/jpeg,image/png" required>
-            <div id="fileInfo" class="file-info" style="display: none;"></div>
-            <button type="submit" id="submitBtn" disabled>Ubah ke Hitam Putih</button>
+            <!-- Upload Tab -->
+            <div class="tab-content active" id="uploadTab">
+                <label for="imageFile">Pilih Gambar:</label>
+                <input type="file" id="imageFile" accept="image/jpeg,image/png">
+                <p class="info-text">Format: JPG, PNG • Maksimal: 5MB</p>
+                <div id="fileInfo" class="file-info" style="display: none;"></div>
+                
+                <div style="background: #fff3cd; padding: 15px; border-radius: 4px; margin: 15px 0;">
+                    <strong>💡 Info:</strong> Fitur upload file sedang dalam pengembangan. 
+                    Untuk hasil terbaik, gunakan <strong>URL Gambar</strong>.
+                </div>
+            </div>
+
+            <!-- URL Tab -->
+            <div class="tab-content" id="urlTab">
+                <label for="imageUrl">URL Gambar:</label>
+                <input type="url" id="imageUrl" placeholder="https://example.com/gambar.jpg">
+                <p class="info-text">Pastikan URL gambar dapat diakses secara publik</p>
+            </div>
+
+            <button type="submit" id="submitBtn">Ubah ke Hitam Putih</button>
         </form>
 
         <div id="messageContainer" class="message" style="display: none;"></div>
@@ -133,18 +188,74 @@
     <script>
         const form = document.getElementById('tohitamForm');
         const imageFileInput = document.getElementById('imageFile');
+        const imageUrlInput = document.getElementById('imageUrl');
         const fileInfo = document.getElementById('fileInfo');
         const submitBtn = document.getElementById('submitBtn');
         const messageContainer = document.getElementById('messageContainer');
         const resultContainer = document.getElementById('resultContainer');
         const resultImage = document.getElementById('resultImage');
         const downloadLink = document.getElementById('downloadLink');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        let currentTab = 'upload';
+
+        // Tab switching
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.getAttribute('data-tab');
+                currentTab = tabName;
+                
+                // Update tabs
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update contents
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.id === tabName + 'Tab') {
+                        content.classList.add('active');
+                    }
+                });
+                
+                clearMessage();
+                resetResult();
+            });
+        });
+
+        // File input handling
+        imageFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Validate file type
+                if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                    showMessage('Hanya format JPG dan PNG yang didukung!', 'error');
+                    return;
+                }
+
+                // Validate file size
+                if (file.size > 5 * 1024 * 1024) {
+                    showMessage('Ukuran file maksimal 5MB!', 'error');
+                    return;
+                }
+
+                fileInfo.textContent = `File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                fileInfo.style.display = 'block';
+            } else {
+                fileInfo.style.display = 'none';
+            }
+            clearMessage();
+        });
 
         const showMessage = (text, type) => {
             messageContainer.textContent = text;
             messageContainer.className = `message ${type}`;
             messageContainer.style.display = 'block';
             resultContainer.style.display = 'none';
+        };
+
+        const clearMessage = () => {
+            messageContainer.style.display = 'none';
         };
 
         const resetResult = () => {
@@ -154,45 +265,39 @@
             downloadLink.href = '#';
         };
 
-        // Handle file selection
-        imageFileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) {
-                submitBtn.disabled = true;
-                fileInfo.style.display = 'none';
-                return;
-            }
-
-            // Validate file type
-            if (!['image/jpeg', 'image/png'].includes(file.type)) {
-                showMessage('Hanya format JPG dan PNG yang didukung!', 'error');
-                submitBtn.disabled = true;
-                return;
-            }
-
-            // Validate file size (max 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                showMessage('Ukuran file maksimal 5MB!', 'error');
-                submitBtn.disabled = true;
-                return;
-            }
-
-            // Show file info
-            fileInfo.textContent = `File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
-            fileInfo.style.display = 'block';
-
-            submitBtn.disabled = false;
-            messageContainer.style.display = 'none';
-            resetResult();
-        });
-
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             resetResult();
+            clearMessage();
 
-            const file = imageFileInput.files[0];
-            if (!file) {
-                return showMessage('Mohon pilih gambar terlebih dahulu.', 'error');
+            let requestData = {};
+            let fileName = '';
+
+            if (currentTab === 'upload') {
+                const file = imageFileInput.files[0];
+                if (!file) {
+                    return showMessage('Mohon pilih gambar terlebih dahulu.', 'error');
+                }
+                
+                // Untuk upload file, kita beri pesan untuk menggunakan URL
+                showMessage('⚠️ Fitur upload file sedang dikembangkan. Silakan gunakan tab "URL Gambar" untuk hasil terbaik.', 'error');
+                return;
+
+            } else {
+                const imageUrl = imageUrlInput.value.trim();
+                if (!imageUrl) {
+                    return showMessage('Mohon masukkan URL gambar.', 'error');
+                }
+
+                // Validate URL
+                try {
+                    new URL(imageUrl);
+                } catch {
+                    return showMessage('Format URL tidak valid.', 'error');
+                }
+
+                requestData = { imageUrl: imageUrl };
+                fileName = 'from_url';
             }
 
             submitBtn.disabled = true;
@@ -200,33 +305,22 @@
             showMessage('Sedang memproses gambar, mohon tunggu...', 'loading');
 
             try {
-                // Convert file to base64
-                const base64Data = await fileToBase64(file);
-                console.log('File converted to base64, length:', base64Data.length);
-                
-                // Panggil Serverless Function Vercel
-                console.log('Sending request to API...');
                 const response = await fetch('/api/tohitam', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ 
-                        imageData: base64Data,
-                        fileName: file.name 
-                    })
+                    body: JSON.stringify(requestData)
                 });
 
-                console.log('Response status:', response.status);
                 const data = await response.json();
-                console.log('Response data:', data);
 
                 if (data.success) {
                     showMessage('✅ Gambar berhasil diolah!', 'success');
                     
                     resultImage.src = data.resultUrl;
                     downloadLink.href = data.resultUrl;
-                    downloadLink.download = `hitamputih_${file.name}`;
+                    downloadLink.download = `hitamputih_${fileName}.png`;
                     resultImage.style.display = 'block';
                     downloadLink.style.display = 'inline-block';
                     resultContainer.style.display = 'block';
@@ -243,15 +337,6 @@
                 submitBtn.textContent = 'Ubah ke Hitam Putih';
             }
         });
-
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-                reader.readAsDataURL(file);
-            });
-        }
     </script>
 </body>
 </html>
