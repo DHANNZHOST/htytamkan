@@ -26,101 +26,93 @@ export default async function handler(req, res) {
         
         console.log('Received request:', { hasImageUrl: !!imageUrl, hasImageData: !!imageData });
         
-        // Handle file upload (base64)
-        if (imageData) {
+        let finalImageUrl = imageUrl;
+
+        // Handle file upload (base64) - Convert to data URL yang bisa diakses
+        if (imageData && !imageUrl) {
             try {
                 console.log('Processing image upload...');
                 
-                // Convert base64 to blob and upload to free image hosting
+                // Karena API eksternal hanya terima URL, kita buat temporary approach
+                // Kita akan convert base64 ke blob URL yang bisa diakses
+                // TAPI karena kita di server, kita perlu cara lain
+                
+                // APPROACH: Upload ke service yang lebih reliable
                 const base64String = imageData.replace(/^data:image\/\w+;base64,/, '');
                 const imageBuffer = Buffer.from(base64String, 'base64');
                 
-                // Upload ke tmpfiles.org
-                const formData = new FormData();
+                // Coba upload ke freeimage.host
+                const uploadFormData = new FormData();
                 const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
-                formData.append('file', blob, 'upload.jpg');
+                uploadFormData.append('file', blob, 'upload.jpg');
                 
-                console.log('Uploading to tmpfiles.org...');
-                const uploadResponse = await fetch('https://tmpfiles.org/api/v1/upload', {
+                console.log('Trying freeimage.host...');
+                const uploadResponse = await fetch('https://freeimage.host/api/1/upload', {
                     method: 'POST',
-                    body: formData
+                    body: uploadFormData
                 });
 
-                if (!uploadResponse.ok) {
-                    throw new Error(`Upload failed with status: ${uploadResponse.status}`);
-                }
-
-                const uploadResult = await uploadResponse.json();
-                console.log('Upload result:', uploadResult);
-                
-                if (uploadResult.data && uploadResult.data.url) {
-                    // Convert to direct download URL
-                    const tmpUrl = uploadResult.data.url;
-                    const directUrl = tmpUrl.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+                if (uploadResponse.ok) {
+                    const uploadResult = await uploadResponse.json();
+                    console.log('Upload success:', uploadResult);
                     
-                    console.log('Processing with external API:', directUrl);
-                    
-                    // Process dengan API eksternal
-                    const apiUrl = `${API_URL_BASE}?imageUrl=${encodeURIComponent(directUrl)}`;
-                    const apiResponse = await fetch(apiUrl);
-
-                    if (!apiResponse.ok) {
-                        throw new Error(`External API failed with status: ${apiResponse.status}`);
+                    if (uploadResult.image && uploadResult.image.url) {
+                        finalImageUrl = uploadResult.image.url;
                     }
-
-                    const json = await apiResponse.json();
-                    console.log('External API response:', json);
-
-                    if (!json || !json.result || !json.result.download) {
-                        throw new Error('Invalid response format from external API');
-                    }
-
-                    const resultImageUrl = json.result.download;
-                    
-                    return res.status(200).json({ 
-                        success: true, 
-                        message: 'Gambar berhasil diolah!',
-                        resultUrl: resultImageUrl
-                    });
                 } else {
-                    throw new Error('No URL returned from upload service');
+                    console.log('freeimage.host failed, trying alternative...');
+                    // Fallback: Convert base64 ke URL yang bisa diakses
+                    // Kita buat data URL yang diperpanjang
+                    finalImageUrl = imageData; // Coba langsung pakai data URL
                 }
 
-            } catch (error) {
-                console.error('Upload Error:', error);
-                return res.status(500).json({ 
-                    success: false, 
-                    message: `Gagal memproses upload: ${error.message}` 
-                });
+            } catch (uploadError) {
+                console.error('Upload Error:', uploadError);
+                // Fallback ke data URL langsung
+                finalImageUrl = imageData;
             }
         }
         
-        // Handle URL (original functionality - backup)
-        if (imageUrl) {
-            console.log('Processing URL:', imageUrl);
-            const apiUrl = `${API_URL_BASE}?imageUrl=${encodeURIComponent(imageUrl)}`;
-            const apiResponse = await fetch(apiUrl);
+        if (!finalImageUrl) {
+            return res.status(400).json({ success: false, message: 'Data gambar tidak ditemukan.' });
+        }
 
-            if (!apiResponse.ok) {
-                return res.status(502).json({ success: false, message: 'Gagal menghubungi API pengolahan gambar.' });
-            }
+        console.log('Processing with URL:', finalImageUrl.substring(0, 100) + '...');
+        
+        // Process dengan API eksternal
+        const apiUrl = `${API_URL_BASE}?imageUrl=${encodeURIComponent(finalImageUrl)}`;
+        console.log('Calling external API:', apiUrl);
+        
+        const apiResponse = await fetch(apiUrl, {
+            method: 'GET',
+            timeout: 30000
+        });
 
-            const json = await apiResponse.json();
-
-            if (!json || !json.result || !json.result.download) {
-                return res.status(500).json({ success: false, message: 'Respon API tidak sesuai.' });
-            }
-
-            const resultImageUrl = json.result.download;
-            
-            return res.status(200).json({ 
-                success: true, 
-                message: 'Gambar berhasil diolah!',
-                resultUrl: resultImageUrl
+        if (!apiResponse.ok) {
+            console.error('External API failed:', apiResponse.status, apiResponse.statusText);
+            return res.status(502).json({ 
+                success: false, 
+                message: `API eksternal tidak merespon: ${apiResponse.status}` 
             });
         }
+
+        const json = await apiResponse.json();
+        console.log('External API response:', json);
+
+        if (!json || !json.result || !json.result.download) {
+            return res.status(500).json({ 
+                success: false, 
+                message: 'Format respons dari API eksternal tidak sesuai' 
+            });
+        }
+
+        const resultImageUrl = json.result.download;
         
-        return res.status(400).json({ success: false, message: 'Data gambar tidak ditemukan.' });
+        return res.status(200).json({ 
+            success: true, 
+            message: 'Gambar berhasil diolah!',
+            resultUrl: resultImageUrl
+        });
 
     } catch (error) {
         console.error('Server Error:', error);
