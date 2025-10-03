@@ -1,60 +1,111 @@
 import fetch from 'node-fetch';
 
-export default async function handler(request, response) {
-    // Set CORS headers
-    response.setHeader('Access-Control-Allow-Credentials', true);
-    response.setHeader('Access-Control-Allow-Origin', '*');
-    response.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    response.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
-
-    // Handle OPTIONS request for CORS
-    if (request.method === 'OPTIONS') {
-        return response.status(200).end();
+/**
+ * Serverless Function untuk Vercel.
+ * Menerima permintaan POST dari frontend untuk memproses gambar.
+ */
+export default async (req, res) => {
+    
+    if (req.method !== 'POST') {
+        return res.status(405).send({ success: false, message: 'Hanya metode POST yang diizinkan.' });
     }
+    
+    const { imageUrl, imageData, fileName } = req.body;
+    const API_URL_BASE = 'https://izumiiiiiiii.dpdns.org/ai-image/hytamkan';
+    
+    // Handle file upload (base64)
+    if (imageData) {
+        try {
+            // Untuk base64, kita perlu mengupload ke temporary service dulu
+            // Karena API eksternal hanya menerima URL, bukan base64
+            
+            // Approach: Upload base64 ke tmpfiles.org (free service)
+            const base64String = imageData.replace(/^data:image\/\w+;base64,/, '');
+            const imageBuffer = Buffer.from(base64String, 'base64');
+            
+            // Upload ke tmpfiles.org
+            const formData = new FormData();
+            const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
+            formData.append('file', blob, fileName || 'upload.jpg');
+            
+            const uploadResponse = await fetch('https://tmpfiles.org/api/v1/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const uploadResult = await uploadResponse.json();
+            
+            if (!uploadResult.data.url) {
+                throw new Error('Gagal upload gambar ke temporary storage');
+            }
+            
+            // Convert tmpfiles.org URL to direct download URL
+            const tmpUrl = uploadResult.data.url;
+            const directUrl = tmpUrl.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+            
+            // Sekarang panggil API eksternal dengan URL temporary
+            const apiUrl = `${API_URL_BASE}?imageUrl=${encodeURIComponent(directUrl)}`;
+            const apiResponse = await fetch(apiUrl);
 
-    // Only allow POST requests
-    if (request.method !== 'POST') {
-        return response.status(405).json({
-            success: false,
-            message: 'Hanya metode POST yang diizinkan'
-        });
+            if (!apiResponse.ok) {
+                return res.status(502).json({ success: false, message: 'Gagal menghubungi API pengolahan gambar.' });
+            }
+
+            const json = await apiResponse.json();
+
+            if (!json || !json.result || !json.result.download) {
+                return res.status(500).json({ success: false, message: 'Respon API tidak sesuai.' });
+            }
+
+            const resultImageUrl = json.result.download;
+            
+            return res.status(200).json({ 
+                success: true, 
+                message: 'Gambar berhasil diolah!',
+                resultUrl: resultImageUrl
+            });
+
+        } catch (error) {
+            console.error('Upload Error:', error);
+            return res.status(500).json({ 
+                success: false, 
+                message: `Gagal memproses file upload: ${error.message}` 
+            });
+        }
+    }
+    
+    // Handle URL (original functionality)
+    if (!imageUrl) {
+        return res.status(400).json({ success: false, message: 'Data gambar tidak ditemukan.' });
     }
 
     try {
-        const { imageData, fileName } = request.body;
+        const apiUrl = `${API_URL_BASE}?imageUrl=${encodeURIComponent(imageUrl)}`;
+        const apiResponse = await fetch(apiUrl);
 
-        if (!imageData) {
-            return response.status(400).json({
-                success: false,
-                message: 'Tidak ada gambar yang diupload'
-            });
+        if (!apiResponse.ok) {
+            return res.status(502).json({ success: false, message: 'Gagal menghubungi API pengolahan gambar.' });
         }
 
-        // Extract base64 data (remove data:image/jpeg;base64, prefix)
-        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
-        
-        // Convert base64 to buffer
-        const imageBuffer = Buffer.from(base64Data, 'base64');
-        
-        // For now, we'll use a temporary approach since the external API only accepts URLs
-        // In production, you would upload to a cloud storage first
-        return response.status(200).json({
-            success: true,
-            message: 'File berhasil diterima! (Fitur upload langsung sedang dikembangkan)',
-            resultUrl: imageData // Return the original image for now
-        });
+        const json = await apiResponse.json();
 
-        // NOTE: Untuk benar-benar memproses gambar, kita perlu:
-        // 1. Upload imageBuffer ke cloud storage (AWS S3, Cloudinary, dll)
-        // 2. Dapatkan URL public dari gambar yang diupload
-        // 3. Kirim URL tersebut ke API eksternal
-        // 4. Return hasilnya ke client
+        if (!json || !json.result || !json.result.download) {
+            return res.status(500).json({ success: false, message: 'Respon API tidak sesuai.' });
+        }
+
+        const resultImageUrl = json.result.download;
+        
+        return res.status(200).json({ 
+            success: true, 
+            message: 'Gambar berhasil diolah!',
+            resultUrl: resultImageUrl
+        });
 
     } catch (error) {
-        console.error('API Error:', error);
-        return response.status(500).json({
-            success: false,
-            message: `Terjadi kesalahan: ${error.message}`
+        console.error('Serverless Function Error:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: `Terjadi kesalahan: ${error.message}` 
         });
     }
-}
+};
