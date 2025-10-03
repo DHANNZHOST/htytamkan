@@ -108,24 +108,16 @@
             border-radius: 4px;
             font-size: 14px;
         }
-        .preview {
-            max-width: 100%;
-            max-height: 200px;
-            margin: 10px 0;
-            border-radius: 4px;
-            display: none;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>✨ ToHitam Web Converter ✨</h1>
-        <p>Upload gambar (JPG/PNG) untuk diubah menjadi versi hitam putih.</p>
+        <p>Upload gambar (JPG/PNG) untuk diubah menjadi hitam putih.</p>
         <form id="tohitamForm">
             <label for="imageFile">Pilih Gambar:</label>
             <input type="file" id="imageFile" accept="image/jpeg,image/png" required>
             <div id="fileInfo" class="file-info" style="display: none;"></div>
-            <img id="previewImage" class="preview" alt="Preview Gambar">
             <button type="submit" id="submitBtn" disabled>Ubah ke Hitam Putih</button>
         </form>
 
@@ -142,14 +134,11 @@
         const form = document.getElementById('tohitamForm');
         const imageFileInput = document.getElementById('imageFile');
         const fileInfo = document.getElementById('fileInfo');
-        const previewImage = document.getElementById('previewImage');
         const submitBtn = document.getElementById('submitBtn');
         const messageContainer = document.getElementById('messageContainer');
         const resultContainer = document.getElementById('resultContainer');
         const resultImage = document.getElementById('resultImage');
         const downloadLink = document.getElementById('downloadLink');
-
-        let currentFile = null;
 
         const showMessage = (text, type) => {
             messageContainer.textContent = text;
@@ -171,7 +160,6 @@
             if (!file) {
                 submitBtn.disabled = true;
                 fileInfo.style.display = 'none';
-                previewImage.style.display = 'none';
                 return;
             }
 
@@ -189,19 +177,9 @@
                 return;
             }
 
-            currentFile = file;
-            
             // Show file info
             fileInfo.textContent = `File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
             fileInfo.style.display = 'block';
-
-            // Show preview
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                previewImage.src = e.target.result;
-                previewImage.style.display = 'block';
-            };
-            reader.readAsDataURL(file);
 
             submitBtn.disabled = false;
             messageContainer.style.display = 'none';
@@ -212,7 +190,8 @@
             e.preventDefault();
             resetResult();
 
-            if (!currentFile) {
+            const file = imageFileInput.files[0];
+            if (!file) {
                 return showMessage('Mohon pilih gambar terlebih dahulu.', 'error');
             }
 
@@ -222,7 +201,7 @@
 
             try {
                 // Convert file to base64
-                const base64Data = await fileToBase64(currentFile);
+                const base64Data = await fileToBase64(file);
                 
                 // Panggil Serverless Function Vercel
                 const response = await fetch('/api/tohitam', {
@@ -232,7 +211,7 @@
                     },
                     body: JSON.stringify({ 
                         imageData: base64Data,
-                        fileName: currentFile.name 
+                        fileName: file.name 
                     })
                 });
 
@@ -243,7 +222,7 @@
                     
                     resultImage.src = data.resultUrl;
                     downloadLink.href = data.resultUrl;
-                    downloadLink.download = `hitamputih_${currentFile.name}`;
+                    downloadLink.download = `hitamputih_${file.name}`;
                     resultImage.style.display = 'block';
                     downloadLink.style.display = 'inline-block';
                     resultContainer.style.display = 'block';
