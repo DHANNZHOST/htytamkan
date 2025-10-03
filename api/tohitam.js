@@ -19,7 +19,7 @@ export default async (req, res) => {
 
     try {
         // 1. Panggil API eksternal
-        const apiUrl = ${API_URL_BASE}?imageUrl=${encodeURIComponent(imageUrl)};
+        const apiUrl = `${API_URL_BASE}?imageUrl=${encodeURIComponent(imageUrl)}`;
         const apiResponse = await fetch(apiUrl);
 
         if (!apiResponse.ok) {
@@ -44,6 +44,6 @@ export default async (req, res) => {
 
     } catch (error) {
         console.error('Serverless Function Error:', error);
-        res.status(500).json({ success: false, message: Terjadi kesalahan pada server: ${error.message} });
+        res.status(500).json({ success: false, message: `Terjadi kesalahan pada server: ${error.message}` });
     }
 };
