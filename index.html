@@ -34,7 +34,7 @@
             margin-bottom: 8px;
             font-weight: bold;
         }
-        input[type="url"] {
+        input[type="url"], input[type="file"] {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
@@ -100,16 +100,72 @@
             text-decoration: none;
             font-weight: bold;
         }
+        .upload-preview {
+            max-width: 100%;
+            max-height: 200px;
+            margin: 10px 0;
+            border: 1px dashed #ccc;
+            border-radius: 4px;
+            display: none;
+        }
+        .tab-container {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #f8f9fa;
+            border: none;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+            border-bottom: 2px solid #3498db;
+            background-color: #fff;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .info-text {
+            font-size: 14px;
+            color: #666;
+            margin-top: -15px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>✨ ToHitam Web Converter ✨</h1>
-        <p>Masukkan URL gambar (JPG/PNG) untuk diubah menjadi versi hitam.</p>
+        <p>Pilih gambar dari perangkat Anda atau masukkan URL gambar untuk diubah menjadi versi hitam.</p>
+        
+        <div class="tab-container">
+            <button class="tab active" data-tab="upload">📁 Upload Gambar</button>
+            <button class="tab" data-tab="url">🔗 URL Gambar</button>
+        </div>
+        
         <form id="tohitamForm">
-            <label for="imageUrl">URL Gambar:</label>
-            <input type="url" id="imageUrl" placeholder="Contoh: https://example.com/foto.jpg" required>
-            <button type="submit" id="submitBtn">Ubah ke Hitam</button>
+            <div class="tab-content active" id="uploadTab">
+                <label for="imageFile">Pilih Gambar (JPG/PNG, maks. 5MB):</label>
+                <input type="file" id="imageFile" accept="image/jpeg,image/png" required>
+                <p class="info-text">Format yang didukung: JPG, PNG. Maksimal ukuran file: 5MB</p>
+                <img id="uploadPreview" class="upload-preview" alt="Preview Gambar">
+            </div>
+            
+            <div class="tab-content" id="urlTab">
+                <label for="imageUrl">URL Gambar:</label>
+                <input type="url" id="imageUrl" placeholder="Contoh: https://example.com/foto.jpg">
+                <p class="info-text">Pastikan URL gambar dapat diakses secara publik</p>
+            </div>
+            
+            <button type="submit" id="submitBtn">🎨 Ubah ke Hitam Putih</button>
         </form>
 
         <div id="messageContainer" class="message" style="display: none;"></div>
@@ -124,17 +180,65 @@
     <script>
         const form = document.getElementById('tohitamForm');
         const imageUrlInput = document.getElementById('imageUrl');
+        const imageFileInput = document.getElementById('imageFile');
+        const uploadPreview = document.getElementById('uploadPreview');
         const submitBtn = document.getElementById('submitBtn');
         const messageContainer = document.getElementById('messageContainer');
         const resultContainer = document.getElementById('resultContainer');
         const resultImage = document.getElementById('resultImage');
         const downloadLink = document.getElementById('downloadLink');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        // Tab switching functionality
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-tab');
+                
+                // Update active tab
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update active content
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.id === `${tabId}Tab`) {
+                        content.classList.add('active');
+                    }
+                });
+                
+                // Clear form validation
+                form.reset();
+                uploadPreview.style.display = 'none';
+                resetResult();
+                hideMessage();
+            });
+        });
+
+        // Preview image when file is selected
+        imageFileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadPreview.src = e.target.result;
+                    uploadPreview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            } else {
+                uploadPreview.style.display = 'none';
+            }
+        });
 
         const showMessage = (text, type) => {
             messageContainer.textContent = text;
             messageContainer.className = `message ${type}`;
             messageContainer.style.display = 'block';
             resultContainer.style.display = 'none';
+        };
+
+        const hideMessage = () => {
+            messageContainer.style.display = 'none';
         };
 
         const resetResult = () => {
@@ -144,27 +248,64 @@
             downloadLink.href = '#';
         };
 
+        const convertImageToBase64 = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        };
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             resetResult();
+            hideMessage();
 
-            const imageUrl = imageUrlInput.value.trim();
-            if (!imageUrl) {
-                return showMessage('Mohon masukkan URL gambar.', 'error');
+            const activeTab = document.querySelector('.tab.active').getAttribute('data-tab');
+            let requestData;
+
+            if (activeTab === 'upload') {
+                const file = imageFileInput.files[0];
+                if (!file) {
+                    return showMessage('❌ Mohon pilih gambar terlebih dahulu.', 'error');
+                }
+                
+                // Validate file type
+                if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                    return showMessage('❌ Hanya format JPG dan PNG yang didukung.', 'error');
+                }
+                
+                // Validate file size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    return showMessage('❌ Ukuran file maksimal 5MB.', 'error');
+                }
+                
+                try {
+                    const base64Image = await convertImageToBase64(file);
+                    requestData = { imageData: base64Image };
+                } catch (error) {
+                    return showMessage('❌ Gagal membaca file gambar.', 'error');
+                }
+            } else {
+                const imageUrl = imageUrlInput.value.trim();
+                if (!imageUrl) {
+                    return showMessage('❌ Mohon masukkan URL gambar.', 'error');
+                }
+                requestData = { imageUrl: imageUrl };
             }
 
             submitBtn.disabled = true;
             submitBtn.textContent = '⏳ Sedang Mengolah...';
-            showMessage('Sedang memproses gambar, mohon tunggu...', 'loading');
+            showMessage('🔄 Sedang memproses gambar, mohon tunggu...', 'loading');
 
             try {
-                // Panggil Serverless Function Vercel
                 const response = await fetch('/api/tohitam', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ imageUrl: imageUrl })
+                    body: JSON.stringify(requestData)
                 });
 
                 const data = await response.json();
@@ -184,10 +325,10 @@
 
             } catch (error) {
                 console.error('Fetch Error:', error);
-                showMessage('❌ Terjadi kesalahan koneksi. Coba periksa URL gambar Anda.', 'error');
+                showMessage('❌ Terjadi kesalahan koneksi. Coba lagi nanti.', 'error');
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Ubah ke Hitam';
+                submitBtn.textContent = '🎨 Ubah ke Hitam Putih';
             }
         });
     </script>
