@@ -20,7 +20,7 @@
         }
         
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -56,15 +56,49 @@
             opacity: 0.7;
         }
         
+        .input-methods {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .method-card {
+            flex: 1;
+            min-width: 250px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .method-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            color: #4facfe;
+        }
+        
+        .method-title {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .method-desc {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 15px;
+        }
+        
         .upload-area {
             background: rgba(255, 255, 255, 0.05);
             border: 2px dashed rgba(255, 255, 255, 0.2);
             border-radius: 15px;
-            padding: 40px 20px;
+            padding: 30px 20px;
             text-align: center;
-            margin-bottom: 30px;
             cursor: pointer;
             transition: all 0.3s ease;
+            margin-bottom: 15px;
         }
         
         .upload-area:hover {
@@ -78,23 +112,38 @@
         }
         
         .upload-icon {
-            font-size: 3rem;
-            margin-bottom: 15px;
+            font-size: 2rem;
+            margin-bottom: 10px;
             color: #4facfe;
         }
         
         .upload-text {
-            font-size: 1.2rem;
-            margin-bottom: 10px;
+            font-size: 1rem;
+            margin-bottom: 5px;
         }
         
         .upload-hint {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             opacity: 0.7;
         }
         
         #fileInput {
             display: none;
+        }
+        
+        .url-input {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }
+        
+        .url-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
         }
         
         .preview-container {
@@ -210,6 +259,10 @@
         }
         
         @media (max-width: 768px) {
+            .input-methods {
+                flex-direction: column;
+            }
+            
             .preview-container {
                 flex-direction: column;
             }
@@ -225,15 +278,34 @@
         <header>
             <h1>✧ tohitam - maker ✧</h1>
             <p class="subtitle">Konversi gambar Anda menjadi versi hitam-putih</p>
-            <p class="creator">Dibuat oleh: SXZnightmare</p>
+            <p class="creator">Dibuat oleh: SXZnightmare | API: Izumi / PxSx</p>
         </header>
         
         <main>
-            <div class="upload-area" id="uploadArea">
-                <div class="upload-icon">📁</div>
-                <p class="upload-text">Seret & Jatuhkan gambar di sini atau klik untuk memilih</p>
-                <p class="upload-hint">Format yang didukung: JPG, PNG</p>
-                <input type="file" id="fileInput" accept="image/jpeg,image/png,image/jpg">
+            <div class="input-methods">
+                <div class="method-card">
+                    <div class="method-icon">📁</div>
+                    <h3 class="method-title">Upload Gambar</h3>
+                    <p class="method-desc">Unggah gambar dari perangkat Anda</p>
+                    
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">📤</div>
+                        <p class="upload-text">Klik untuk memilih gambar</p>
+                        <p class="upload-hint">Format: JPG, PNG</p>
+                        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/jpg">
+                    </div>
+                </div>
+                
+                <div class="method-card">
+                    <div class="method-icon">🔗</div>
+                    <h3 class="method-title">URL Gambar</h3>
+                    <p class="method-desc">Masukkan URL gambar dari internet</p>
+                    
+                    <input type="url" class="url-input" id="urlInput" placeholder="https://example.com/image.jpg">
+                    <button class="btn" id="loadUrlBtn">
+                        <span>Muat Gambar</span>
+                    </button>
+                </div>
             </div>
             
             <div class="preview-container" id="previewContainer">
@@ -279,6 +351,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             const uploadArea = document.getElementById('uploadArea');
             const fileInput = document.getElementById('fileInput');
+            const urlInput = document.getElementById('urlInput');
+            const loadUrlBtn = document.getElementById('loadUrlBtn');
             const originalPreview = document.getElementById('originalPreview');
             const resultPreview = document.getElementById('resultPreview');
             const convertBtn = document.getElementById('convertBtn');
@@ -289,6 +363,7 @@
             const downloadBtn = document.getElementById('downloadBtn');
             const previewContainer = document.getElementById('previewContainer');
             
+            let selectedImageUrl = null;
             let selectedFile = null;
             
             // Event listeners untuk upload area
@@ -318,6 +393,12 @@
                 }
             });
             
+            // Event listener untuk tombol load URL
+            loadUrlBtn.addEventListener('click', loadFromUrl);
+            urlInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') loadFromUrl();
+            });
+            
             // Fungsi untuk menangani file yang dipilih
             function handleFile(file) {
                 // Validasi tipe file
@@ -327,6 +408,7 @@
                 }
                 
                 selectedFile = file;
+                selectedImageUrl = null;
                 
                 // Tampilkan preview gambar asli
                 const reader = new FileReader();
@@ -341,47 +423,68 @@
                 reader.readAsDataURL(file);
             }
             
+            // Fungsi untuk memuat gambar dari URL
+            function loadFromUrl() {
+                const url = urlInput.value.trim();
+                if (!url) {
+                    showError('Masukkan URL gambar terlebih dahulu!');
+                    return;
+                }
+                
+                // Validasi URL
+                try {
+                    new URL(url);
+                } catch {
+                    showError('URL tidak valid!');
+                    return;
+                }
+                
+                selectedImageUrl = url;
+                selectedFile = null;
+                
+                // Tampilkan preview gambar asli
+                originalPreview.src = url;
+                previewContainer.style.display = 'flex';
+                convertBtn.disabled = false;
+                hideError();
+                resultContainer.style.display = 'none';
+                resultPreview.src = '';
+            }
+            
             // Event listener untuk tombol konversi
             convertBtn.addEventListener('click', convertImage);
             
             // Fungsi untuk mengonversi gambar
             async function convertImage() {
-                if (!selectedFile) return;
-                
                 loading.style.display = 'block';
                 convertBtn.disabled = true;
                 hideError();
                 resultContainer.style.display = 'none';
                 
                 try {
-                    // Upload gambar ke server sementara
-                    const formData = new FormData();
-                    formData.append('image', selectedFile);
+                    let imageUrl;
                     
-                    // Menggunakan layanan upload gambar gratis
-                    const uploadResponse = await fetch('https://api.imgbb.com/1/upload?key=2c6e6e4e6e6e6e6e6e6e6e6e6e6e6e6', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    if (!uploadResponse.ok) {
-                        throw new Error('Upload gagal! Coba lagi nanti yaa~');
+                    if (selectedFile) {
+                        // Jika menggunakan file, upload dulu ke layanan publik
+                        imageUrl = await uploadImage(selectedFile);
+                    } else if (selectedImageUrl) {
+                        // Jika menggunakan URL langsung
+                        imageUrl = selectedImageUrl;
+                    } else {
+                        throw new Error('Tidak ada gambar yang dipilih!');
                     }
-                    
-                    const uploadData = await uploadResponse.json();
-                    const imageUrl = uploadData.data.url;
                     
                     // Panggil API tohitam
                     const apiUrl = `https://izumiiiiiiii.dpdns.org/ai-image/hytamkan?imageUrl=${encodeURIComponent(imageUrl)}`;
                     const response = await fetch(apiUrl);
                     
                     if (!response.ok) {
-                        throw new Error('Gagal menghubungi dapur API! Coba lagi nanti~');
+                        throw new Error('Gagal menghubungi API! Coba lagi nanti~');
                     }
                     
                     const json = await response.json();
                     
-                    if (!json || !json.result || !json.result.download) {
+                    if (!json || !json.status || !json.result || !json.result.download) {
                         throw new Error('Respon API tidak sesuai!');
                     }
                     
@@ -410,6 +513,25 @@
                     convertBtn.disabled = false;
                     showError(`Ups ada error teknis! 🍭\nDetail: ${error.message}`);
                 }
+            }
+            
+            // Fungsi untuk upload gambar ke layanan publik
+            async function uploadImage(file) {
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                // Menggunakan layanan upload gambar gratis (Catbox)
+                const response = await fetch('https://catbox.moe/user/api.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Upload gambar gagal! Coba lagi nanti~');
+                }
+                
+                const imageUrl = await response.text();
+                return imageUrl;
             }
             
             // Fungsi untuk menampilkan pesan error
