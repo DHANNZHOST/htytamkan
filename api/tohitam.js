@@ -1,105 +1,78 @@
-import fetch from 'node-fetch';
+import fetch from 'node-fetch'; 
 
-/**
- * Serverless Function untuk Vercel.
- * Menerima permintaan POST dari frontend untuk memproses gambar.
- */
-export default async function handler(req, res) {
+export default async function handler(request, response) { 
+  // Set CORS headers 
+  response.setHeader('Access-Control-Allow-Credentials', true); 
+  response.setHeader('Access-Control-Allow-Origin', '*'); 
+  response.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT'); 
+  response.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'); 
+  
+  // Handle OPTIONS request for CORS 
+  if (request.method === 'OPTIONS') { 
+    return response.status(200).end(); 
+  } 
+  
+  // Only allow POST requests 
+  if (request.method !== 'POST') { 
+    return response.status(405).json({ 
+      success: false, 
+      message: 'Method not allowed' 
+    }); 
+  } 
+  
+  try { 
+    const { imageUrl, imageData } = await request.body; 
     
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+    // For now, we only support URL processing 
+    // File upload would require additional storage service 
+    if (!imageUrl) { 
+      return response.status(400).json({ 
+        success: false, 
+        message: 'Silakan gunakan fitur URL gambar. Upload file sedang dalam pengembangan.' 
+      }); 
+    } 
     
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
+    // Validate URL 
+    try { 
+      new URL(imageUrl); 
+    } catch (urlError) { 
+      return response.status(400).json({ 
+        success: false, 
+        message: 'URL gambar tidak valid' 
+      }); 
+    } 
     
-    if (req.method !== 'POST') {
-        return res.status(405).json({ 
-            success: false, 
-            message: 'Hanya metode POST yang diizinkan.' 
-        });
-    }
+    // Call external API 
+    const apiUrl = `https://izumiiiiiiii.dpdns.org/ai-image/hytamkan?imageUrl=${encodeURIComponent(imageUrl)}`; 
+    console.log('Calling external API:', apiUrl); 
     
-    const API_URL_BASE = 'https://izumiiiiiiii.dpdns.org/ai-image/hytamkan';
+    const apiResponse = await fetch(apiUrl, { 
+      method: 'GET', 
+      timeout: 30000 
+    }); 
     
-    try {
-        const { imageUrl, imageData } = req.body;
-        
-        let finalImageUrl = imageUrl;
-        
-        // Jika menggunakan upload file (base64)
-        if (imageData && !imageUrl) {
-            // Untuk base64, kita perlu mengupload ke service lain terlebih dahulu
-            // Atau langsung menggunakan base64 jika API eksternal mendukung
-            // Untuk sekarang, kita beri pesan bahwa fitur upload sedang dikembangkan
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Fitur upload file sedang dalam pengembangan. Silakan gunakan URL gambar untuk saat ini.' 
-            });
-        }
-        
-        if (!finalImageUrl) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'URL gambar wajib diisi.' 
-            });
-        }
-
-        // Validasi URL
-        try {
-            new URL(finalImageUrl);
-        } catch (urlError) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'URL tidak valid.' 
-            });
-        }
-
-        // Panggil API eksternal
-        const apiUrl = `${API_URL_BASE}?imageUrl=${encodeURIComponent(finalImageUrl)}`;
-        console.log('Memanggil API eksternal:', apiUrl);
-        
-        const apiResponse = await fetch(apiUrl, {
-            method: 'GET',
-            timeout: 30000 // 30 detik timeout
-        });
-
-        if (!apiResponse.ok) {
-            console.error('API Response not OK:', apiResponse.status, apiResponse.statusText);
-            return res.status(502).json({ 
-                success: false, 
-                message: `Gagal menghubungi API pengolahan gambar. Status: ${apiResponse.status}` 
-            });
-        }
-
-        const json = await apiResponse.json();
-        console.log('Response dari API:', JSON.stringify(json).substring(0, 200));
-
-        // Cek format respons
-        if (!json || !json.result || !json.result.download) {
-            return res.status(500).json({ 
-                success: false, 
-                message: 'Respon API eksternal tidak sesuai atau link hasil tidak ditemukan.' 
-            });
-        }
-
-        const resultImageUrl = json.result.download;
-        
-        // Kirim respons berhasil
-        return res.status(200).json({ 
-            success: true, 
-            message: 'Gambar berhasil diolah!',
-            resultUrl: resultImageUrl
-        });
-
-    } catch (error) {
-        console.error('Serverless Function Error:', error);
-        return res.status(500).json({ 
-            success: false, 
-            message: `Terjadi kesalahan pada server: ${error.message}` 
-        });
-    }
+    if (!apiResponse.ok) { 
+      throw new Error(`API responded with status: ${apiResponse.status}`); 
+    } 
+    
+    const result = await apiResponse.json(); 
+    
+    if (!result?.result?.download) { 
+      throw new Error('Invalid response from processing API'); 
+    } 
+    
+    // Return success response 
+    return response.status(200).json({ 
+      success: true, 
+      message: 'Gambar berhasil diproses!', 
+      resultUrl: result.result.download 
+    }); 
+    
+  } catch (error) { 
+    console.error('API Error:', error); 
+    return response.status(500).json({ 
+      success: false, 
+      message: `Terjadi kesalahan: ${error.message}` 
+    }); 
+  } 
 }
