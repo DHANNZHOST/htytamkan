@@ -95,7 +95,6 @@
         
         .input-group {
             margin-bottom: 25px;
-            text-align: center;
         }
         
         label {
@@ -105,8 +104,8 @@
             font-weight: 500;
         }
         
-        input[type="file"] {
-            width: 80%;
+        input[type="text"] {
+            width: 100%;
             padding: 15px;
             background: rgba(0, 0, 0, 0.5);
             border: 1px solid #8a2be2;
@@ -115,26 +114,10 @@
             font-size: 1rem;
             outline: none;
             transition: all 0.3s ease;
-            margin: 0 auto;
-            display: block;
         }
         
-        .preview-container {
-            margin-top: 15px;
-            text-align: center;
-        }
-        
-        .preview-title {
-            margin-bottom: 10px;
-            color: #da70d6;
-        }
-        
-        #image-preview {
-            max-width: 300px;
-            max-height: 300px;
-            border-radius: 10px;
-            border: 1px solid #8a2be2;
-            display: none;
+        input[type="text"]:focus {
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.7);
         }
         
         .btn {
@@ -171,7 +154,6 @@
         
         .result img {
             max-width: 100%;
-            max-height: 500px;
             border-radius: 10px;
             border: 2px solid #8a2be2;
             box-shadow: 0 0 20px rgba(138, 43, 226, 0.5);
@@ -254,10 +236,6 @@
                 padding: 12px 20px;
                 font-size: 1rem;
             }
-            
-            input[type="file"] {
-                width: 100%;
-            }
         }
     </style>
 </head>
@@ -265,55 +243,47 @@
     <div class="container">
         <div class="header">
             <h1 class="title">Skin Darkener AI</h1>
-            <p class="subtitle">Upload gambar dan ubah kulit menjadi hitam pekat</p>
+            <p class="subtitle">Masukkan URL gambar dan ubah kulit menjadi hitam gelap</p>
         </div>
         
         <div class="input-group">
-            <label for="image-upload">Pilih gambar:</label>
-            <input type="file" id="image-upload" accept=".jpg,.jpeg,.png">
-        </div>
-        
-        <div class="preview-container">
-            <p class="preview-title">Pratinjau:</p>
-            <img id="image-preview" src="#" alt="Pratinjau Gambar">
+            <label for="image-url">URL Gambar:</label>
+            <input type="text" id="image-url" placeholder="https://example.com/image.jpg">
         </div>
         
         <button class="btn" id="process-btn">
-            <span>🚀 Buat Kulit Hitam Pekat</span>
+            <span>🚀 Proses dengan AI</span>
         </button>
         
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <p>Sedang memproses gambar...</p>
+            <p>Sedang memproses permintaan Anda...</p>
         </div>
         
         <div class="result" id="result">
-            <h2>Hasil - Kulit Hitam Pekat</h2>
+            <h2>Hasil - Kulit Hitam Gelap</h2>
             <div id="image-container"></div>
             <a href="#" class="download-btn" id="download-btn" download="skin-darkened.jpg">Download Gambar</a>
         </div>
         
         <footer>
-            <p>Skin Darkener AI - Hanya mengubah warna kulit menjadi hitam pekat</p>
+            <p>Diberdayakan oleh AI Technology</p>
         </footer>
     </div>
 
     <div class="notification" id="notification">
-        Gambar berhasil diproses! Kulit sudah dihitamkan pekat.
+        Gambar berhasil dihasilkan! Silakan download.
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const processBtn = document.getElementById('process-btn');
-            const imageUpload = document.getElementById('image-upload');
-            const imagePreview = document.getElementById('image-preview');
+            const imageUrlInput = document.getElementById('image-url');
             const resultDiv = document.getElementById('result');
             const loadingDiv = document.getElementById('loading');
             const imageContainer = document.getElementById('image-container');
             const downloadBtn = document.getElementById('download-btn');
             const notification = document.getElementById('notification');
-            
-            let uploadedImage = null;
             
             // Fungsi untuk menampilkan notifikasi
             function showNotification() {
@@ -323,114 +293,61 @@
                 }, 3000);
             }
             
-            // Fungsi deteksi kulit yang lebih akurat
-            function isSkinColor(r, g, b) {
-                // Deteksi range warna kulit manusia (terang sampai gelap)
-                const isLightSkin = (r > 180 && g > 130 && b > 100 && r > g && r > b);
-                const isMediumSkin = (r > 150 && g > 100 && b > 80 && r > g && r > b);
-                const isTanSkin = (r > 170 && g > 120 && b > 90 && r > g && r > b);
-                
-                // Deteksi untuk anime/cartoon (warna lebih terang)
-                const isAnimeSkin = (r > 200 && g > 170 && b > 140);
-                
-                return isLightSkin || isMediumSkin || isTanSkin || isAnimeSkin;
-            }
-            
-            // Event listener untuk upload gambar
-            imageUpload.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    
-                    reader.onload = function(e) {
-                        imagePreview.src = e.target.result;
-                        imagePreview.style.display = 'block';
-                        uploadedImage = file;
-                        resultDiv.style.display = 'none';
-                    }
-                    
-                    reader.readAsDataURL(file);
-                }
-            });
-            
             processBtn.addEventListener('click', function() {
-                if (!uploadedImage) {
-                    alert('Silakan pilih gambar terlebih dahulu!');
+                const imageUrl = imageUrlInput.value.trim();
+                
+                if (imageUrl === '') {
+                    alert('Silakan masukkan URL gambar terlebih dahulu!');
                     return;
                 }
+                
+                // Prompt untuk API - simple: buat kulit jadi hitam
+                const prompt = "dark black skin tone";
+                const encodedPrompt = encodeURIComponent(prompt);
+                
+                // API URL seperti di contoh pertama
+                const apiUrl = `https://api.siputzx.my.id/api/ai/flux?prompt=${encodedPrompt}`;
                 
                 // Tampilkan loading
                 loadingDiv.style.display = 'block';
                 resultDiv.style.display = 'none';
                 
-                // Proses gambar
-                setTimeout(() => {
-                    const img = new Image();
-                    img.onload = function() {
-                        // Buat canvas untuk memproses gambar
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        
-                        // Set ukuran canvas sesuai gambar
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        
-                        // Gambar gambar ke canvas
-                        ctx.drawImage(img, 0, 0);
-                        
-                        // Ambil data gambar
-                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        const data = imageData.data;
-                        
-                        let skinPixels = 0;
-                        
-                        // Proses setiap pixel
-                        for (let i = 0; i < data.length; i += 4) {
-                            const r = data[i];
-                            const g = data[i + 1];
-                            const b = data[i + 2];
-                            
-                            // Deteksi apakah ini warna kulit
-                            if (isSkinColor(r, g, b)) {
-                                skinPixels++;
-                                // Ubah ke kulit hitam pekat (sangat gelap)
-                                data[i] = 30;     // R - sangat gelap
-                                data[i + 1] = 20; // G - sangat gelap  
-                                data[i + 2] = 15; // B - sangat gelap
-                            }
-                            // Biarkan pixel lainnya (background, pakaian, dll) tetap normal
+                // Lakukan request ke API
+                fetch(apiUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
                         }
-                        
-                        console.log(`Berhasil mengubah ${skinPixels} pixel kulit menjadi hitam pekat`);
-                        
-                        // Letakkan data yang sudah diproses kembali ke canvas
-                        ctx.putImageData(imageData, 0, 0);
-                        
-                        // Dapatkan URL gambar hasil
-                        const processedImageUrl = canvas.toDataURL('image/jpeg', 0.9);
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        // Buat URL dari blob
+                        const imageUrl = URL.createObjectURL(blob);
                         
                         // Sembunyikan loading
                         loadingDiv.style.display = 'none';
                         
                         // Tampilkan gambar
-                        const resultImg = document.createElement('img');
-                        resultImg.src = processedImageUrl;
-                        resultImg.alt = 'Hasil Kulit Hitam Pekat';
+                        const img = document.createElement('img');
+                        img.src = imageUrl;
+                        img.alt = 'Generated Dark Skin Image';
                         imageContainer.innerHTML = '';
-                        imageContainer.appendChild(resultImg);
+                        imageContainer.appendChild(img);
                         
                         // Set download link
-                        downloadBtn.href = processedImageUrl;
+                        downloadBtn.href = imageUrl;
                         
                         // Tampilkan result
                         resultDiv.style.display = 'block';
                         
                         // Tampilkan notifikasi
                         showNotification();
-                    };
-                    
-                    img.src = URL.createObjectURL(uploadedImage);
-                }, 1000);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        loadingDiv.style.display = 'none';
+                        alert('Terjadi kesalahan saat memproses permintaan. Silakan coba lagi.');
+                    });
             });
         });
     </script>
