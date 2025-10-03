@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ToHitam - Image Converter</title>
+    <title>ToHitam - Upload & Convert</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -25,13 +25,29 @@
             text-align: center; 
         }
         h1 { color: #2d3748; margin-bottom: 10px; }
-        .url-input { 
-            width: 100%; 
-            padding: 15px; 
-            border: 2px solid #e2e8f0; 
-            border-radius: 10px; 
-            font-size: 16px; 
-            margin: 20px 0; 
+        .upload-area {
+            border: 3px dashed #cbd5e0;
+            border-radius: 15px;
+            padding: 40px 20px;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #ebf8ff;
+        }
+        .upload-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        .file-input {
+            display: none;
         }
         .convert-btn { 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
@@ -42,10 +58,22 @@
             font-size: 18px; 
             cursor: pointer; 
             width: 100%; 
+            margin-top: 20px;
         }
-        .convert-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .result { margin-top: 30px; display: none; }
-        .result-image { max-width: 100%; border-radius: 10px; margin: 15px 0; }
+        .convert-btn:disabled { 
+            opacity: 0.6; 
+            cursor: not-allowed; 
+        }
+        .result { 
+            margin-top: 30px; 
+            display: none; 
+        }
+        .result-image { 
+            max-width: 100%; 
+            border-radius: 10px; 
+            margin: 15px 0; 
+            max-height: 400px;
+        }
         .download-btn { 
             display: inline-block; 
             background: #48bb78; 
@@ -55,20 +83,58 @@
             text-decoration: none; 
             margin-top: 10px; 
         }
-        .message { padding: 15px; border-radius: 10px; margin: 15px 0; display: none; }
-        .error { background: #fed7d7; color: #c53030; display: block; }
-        .success { background: #c6f6d5; color: #276749; display: block; }
-        .loading { background: #fefcbf; color: #d69e2e; display: block; }
+        .message { 
+            padding: 15px; 
+            border-radius: 10px; 
+            margin: 15px 0; 
+            display: none; 
+        }
+        .error { 
+            background: #fed7d7; 
+            color: #c53030; 
+            display: block; 
+        }
+        .success { 
+            background: #c6f6d5; 
+            color: #276749; 
+            display: block; 
+        }
+        .loading { 
+            background: #fefcbf; 
+            color: #d69e2e; 
+            display: block; 
+        }
+        .preview {
+            max-width: 100%;
+            max-height: 200px;
+            margin: 15px 0;
+            border-radius: 10px;
+            display: none;
+        }
+        .file-info {
+            margin: 10px 0;
+            font-weight: bold;
+            color: #667eea;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎨 ToHitam Converter</h1>
-        <p>Ubah gambar menjadi hitam putih dengan mudah</p>
+        <p>Upload gambar langsung untuk diubah jadi hitam putih</p>
         
         <form id="converterForm">
-            <input type="url" id="imageUrl" class="url-input" placeholder="https://example.com/gambar.jpg" required>
-            <button type="submit" class="convert-btn" id="convertBtn">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <h3>Klik atau Drop gambar di sini</h3>
+                <p>Format: JPG, PNG (Maks. 5MB)</p>
+                <input type="file" id="imageFile" class="file-input" accept="image/jpeg,image/png" required>
+            </div>
+            
+            <div id="fileInfo" class="file-info"></div>
+            <img id="previewImage" class="preview" alt="Preview gambar">
+            
+            <button type="submit" class="convert-btn" id="convertBtn" disabled>
                 Ubah ke Hitam Putih
             </button>
         </form>
@@ -79,38 +145,94 @@
             <h3>Hasil Konversi</h3>
             <img id="resultImage" class="result-image" alt="Hasil konversi">
             <a href="#" id="downloadLink" class="download-btn" download="tohitam.png">
-                📥 Download Gambar
+                📥 Download Gambar Hitam Putih
             </a>
         </div>
     </div>
 
     <script>
         const form = document.getElementById('converterForm');
-        const imageUrl = document.getElementById('imageUrl');
+        const imageFile = document.getElementById('imageFile');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInfo = document.getElementById('fileInfo');
+        const previewImage = document.getElementById('previewImage');
         const convertBtn = document.getElementById('convertBtn');
         const messageDiv = document.getElementById('message');
         const resultContainer = document.getElementById('resultContainer');
         const resultImage = document.getElementById('resultImage');
         const downloadLink = document.getElementById('downloadLink');
 
+        let currentFile = null;
+
+        // Upload area click handler
+        uploadArea.addEventListener('click', () => imageFile.click());
+        
+        // Drag and drop handlers
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        // File input change handler
+        imageFile.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            // Validate file type
+            if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                showMessage('Hanya format JPG dan PNG yang didukung!', 'error');
+                return;
+            }
+
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showMessage('Ukuran file maksimal 5MB!', 'error');
+                return;
+            }
+
+            currentFile = file;
+            fileInfo.textContent = `File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            convertBtn.disabled = false;
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                previewImage.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+
+            hideMessage();
+            resetResult();
+        }
+
+        // Form submission
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const url = imageUrl.value.trim();
-            if (!url) {
-                showMessage('Masukkan URL gambar!', 'error');
+            if (!currentFile) {
+                showMessage('Pilih gambar terlebih dahulu!', 'error');
                 return;
             }
 
-            // Validate URL format
-            try {
-                new URL(url);
-            } catch {
-                showMessage('Format URL tidak valid!', 'error');
-                return;
-            }
-
-            await processImage(url);
+            await processImage(currentFile);
         });
 
         function showMessage(text, type) {
@@ -128,27 +250,34 @@
             downloadLink.href = '#';
         }
 
-        async function processImage(imageUrl) {
+        async function processImage(file) {
             convertBtn.disabled = true;
             convertBtn.textContent = 'Memproses...';
             showMessage('Sedang mengubah gambar, tunggu sebentar...', 'loading');
             resetResult();
 
             try {
+                // Convert file to base64
+                const base64Data = await fileToBase64(file);
+                
                 const response = await fetch('/api/tohitam', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ imageUrl: imageUrl })
+                    body: JSON.stringify({ 
+                        imageData: base64Data,
+                        fileName: file.name 
+                    })
                 });
 
                 const data = await response.json();
 
                 if (data.success) {
-                    showMessage('Gambar berhasil diubah!', 'success');
+                    showMessage('Gambar berhasil diubah jadi hitam putih!', 'success');
                     resultImage.src = data.resultUrl;
                     downloadLink.href = data.resultUrl;
+                    downloadLink.download = `hitamputih_${file.name}`;
                     resultContainer.style.display = 'block';
                 } else {
                     showMessage(data.message || 'Terjadi kesalahan!', 'error');
@@ -160,6 +289,15 @@
                 convertBtn.disabled = false;
                 convertBtn.textContent = 'Ubah ke Hitam Putih';
             }
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
         }
     </script>
 </body>
