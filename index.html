@@ -1,80 +1,166 @@
-import fetch from 'node-fetch';
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToHitam - Image Converter</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: Arial, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            padding: 20px; 
+        }
+        .container { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1); 
+            max-width: 500px; 
+            width: 100%; 
+            text-align: center; 
+        }
+        h1 { color: #2d3748; margin-bottom: 10px; }
+        .url-input { 
+            width: 100%; 
+            padding: 15px; 
+            border: 2px solid #e2e8f0; 
+            border-radius: 10px; 
+            font-size: 16px; 
+            margin: 20px 0; 
+        }
+        .convert-btn { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            border: none; 
+            padding: 15px 30px; 
+            border-radius: 10px; 
+            font-size: 18px; 
+            cursor: pointer; 
+            width: 100%; 
+        }
+        .convert-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .result { margin-top: 30px; display: none; }
+        .result-image { max-width: 100%; border-radius: 10px; margin: 15px 0; }
+        .download-btn { 
+            display: inline-block; 
+            background: #48bb78; 
+            color: white; 
+            padding: 12px 25px; 
+            border-radius: 8px; 
+            text-decoration: none; 
+            margin-top: 10px; 
+        }
+        .message { padding: 15px; border-radius: 10px; margin: 15px 0; display: none; }
+        .error { background: #fed7d7; color: #c53030; display: block; }
+        .success { background: #c6f6d5; color: #276749; display: block; }
+        .loading { background: #fefcbf; color: #d69e2e; display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 ToHitam Converter</h1>
+        <p>Ubah gambar menjadi hitam putih dengan mudah</p>
+        
+        <form id="converterForm">
+            <input type="url" id="imageUrl" class="url-input" placeholder="https://example.com/gambar.jpg" required>
+            <button type="submit" class="convert-btn" id="convertBtn">
+                Ubah ke Hitam Putih
+            </button>
+        </form>
 
-export default async function handler(request, response) {
-  // Set CORS headers
-  response.setHeader('Access-Control-Allow-Credentials', true);
-  response.setHeader('Access-Control-Allow-Origin', '*');
-  response.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  response.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+        <div id="message" class="message"></div>
 
-  // Handle OPTIONS request for CORS
-  if (request.method === 'OPTIONS') {
-    return response.status(200).end();
-  }
+        <div class="result" id="resultContainer">
+            <h3>Hasil Konversi</h3>
+            <img id="resultImage" class="result-image" alt="Hasil konversi">
+            <a href="#" id="downloadLink" class="download-btn" download="tohitam.png">
+                📥 Download Gambar
+            </a>
+        </div>
+    </div>
 
-  // Only allow POST requests
-  if (request.method !== 'POST') {
-    return response.status(405).json({
-      success: false,
-      message: 'Method not allowed'
-    });
-  }
+    <script>
+        const form = document.getElementById('converterForm');
+        const imageUrl = document.getElementById('imageUrl');
+        const convertBtn = document.getElementById('convertBtn');
+        const messageDiv = document.getElementById('message');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultImage = document.getElementById('resultImage');
+        const downloadLink = document.getElementById('downloadLink');
 
-  try {
-    const { imageUrl, imageData } = await request.body;
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const url = imageUrl.value.trim();
+            if (!url) {
+                showMessage('Masukkan URL gambar!', 'error');
+                return;
+            }
 
-    // For now, we only support URL processing
-    // File upload would require additional storage service
-    if (!imageUrl) {
-      return response.status(400).json({
-        success: false,
-        message: 'Silakan gunakan fitur URL gambar. Upload file sedang dalam pengembangan.'
-      });
-    }
+            // Validate URL format
+            try {
+                new URL(url);
+            } catch {
+                showMessage('Format URL tidak valid!', 'error');
+                return;
+            }
 
-    // Validate URL
-    try {
-      new URL(imageUrl);
-    } catch (urlError) {
-      return response.status(400).json({
-        success: false,
-        message: 'URL gambar tidak valid'
-      });
-    }
+            await processImage(url);
+        });
 
-    // Call external API
-    const apiUrl = `https://izumiiiiiiii.dpdns.org/ai-image/hytamkan?imageUrl=${encodeURIComponent(imageUrl)}`;
-    
-    console.log('Calling external API:', apiUrl);
-    
-    const apiResponse = await fetch(apiUrl, {
-      method: 'GET',
-      timeout: 30000
-    });
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+        }
 
-    if (!apiResponse.ok) {
-      throw new Error(`API responded with status: ${apiResponse.status}`);
-    }
+        function hideMessage() {
+            messageDiv.style.display = 'none';
+        }
 
-    const result = await apiResponse.json();
+        function resetResult() {
+            resultContainer.style.display = 'none';
+            resultImage.src = '';
+            downloadLink.href = '#';
+        }
 
-    if (!result?.result?.download) {
-      throw new Error('Invalid response from processing API');
-    }
+        async function processImage(imageUrl) {
+            convertBtn.disabled = true;
+            convertBtn.textContent = 'Memproses...';
+            showMessage('Sedang mengubah gambar, tunggu sebentar...', 'loading');
+            resetResult();
 
-    // Return success response
-    return response.status(200).json({
-      success: true,
-      message: 'Gambar berhasil diproses!',
-      resultUrl: result.result.download
-    });
+            try {
+                const response = await fetch('/api/tohitam', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ imageUrl: imageUrl })
+                });
 
-  } catch (error) {
-    console.error('API Error:', error);
-    
-    return response.status(500).json({
-      success: false,
-      message: `Terjadi kesalahan: ${error.message}`
-    });
-  }
-}
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('Gambar berhasil diubah!', 'success');
+                    resultImage.src = data.resultUrl;
+                    downloadLink.href = data.resultUrl;
+                    resultContainer.style.display = 'block';
+                } else {
+                    showMessage(data.message || 'Terjadi kesalahan!', 'error');
+                }
+            } catch (error) {
+                showMessage('Koneksi gagal. Coba lagi!', 'error');
+                console.error('Error:', error);
+            } finally {
+                convertBtn.disabled = false;
+                convertBtn.textContent = 'Ubah ke Hitam Putih';
+            }
+        }
+    </script>
+</body>
+</html>
